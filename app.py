@@ -1,10 +1,10 @@
 import streamlit as st
 import uuid
 
-from src.graph.graph_builder import build_graph
+from src.graph.graph_builder import builder_graph
 from langchain_core.messages import HumanMessage
 
-chatbot = build_graph()
+chatbot = builder_graph()
 
 
 # =========================
