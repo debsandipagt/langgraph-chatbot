@@ -55,14 +55,14 @@ add_thread(st.session_state["thread_id"])
 # Sidebar
 # =========================
 
-st.sidebar.title("LangGraph-Chatbot")
+st.sidebar.title("NeuroChat AI")
 
 if st.sidebar.button("New Chat"):
     reset_chat()
 
 st.sidebar.header("My Conversations")
 
-for thread_id in st.session_state["chat_threads"]:
+for thread_id in st.session_state["chat_threads"][::-1]:
 
     if st.sidebar.button(thread_id):
 
