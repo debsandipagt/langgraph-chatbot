@@ -1,7 +1,7 @@
 import streamlit as st
 import uuid
 
-from src.graph.graph_builder import builder_graph
+from src.graph.graph_builder import builder_graph, retrieve_all_threads
 from langchain_core.messages import HumanMessage
 
 chatbot = builder_graph()
@@ -12,7 +12,12 @@ chatbot = builder_graph()
 # =========================
 
 def generate_thread_id():
-    return str(uuid.uuid4())
+    threads = retrieve_all_threads()
+    if not threads:
+        return "thread_1"
+    numbers = [int(t.split("_")[1]) for t in threads]
+
+    return f"thread_{max(numbers)+1}"
 
 
 def add_thread(thread_id):
@@ -46,7 +51,7 @@ if "thread_id" not in st.session_state:
     st.session_state["thread_id"] = generate_thread_id()
 
 if "chat_threads" not in st.session_state:
-    st.session_state["chat_threads"] = []
+    st.session_state["chat_threads"] = retrieve_all_threads()
 
 add_thread(st.session_state["thread_id"])
 
