@@ -12,15 +12,22 @@ chatbot = builder_graph()
 # =========================
 
 def generate_thread_id():
-    threads = retrieve_all_threads()
+
+    threads = st.session_state.get("chat_threads", [])
+
     if not threads:
         return "thread_1"
+
     numbers = [int(t.split("_")[1]) for t in threads]
 
-    return f"thread_{max(numbers)+1}"
+    return f"thread_{max(numbers) + 1}"
 
 
 def add_thread(thread_id):
+
+    if "chat_threads" not in st.session_state:
+        st.session_state["chat_threads"] = []
+
     if thread_id not in st.session_state["chat_threads"]:
         st.session_state["chat_threads"].append(thread_id)
 
@@ -51,7 +58,8 @@ if "thread_id" not in st.session_state:
     st.session_state["thread_id"] = generate_thread_id()
 
 if "chat_threads" not in st.session_state:
-    st.session_state["chat_threads"] = retrieve_all_threads()
+    threads = retrieve_all_threads()
+    st.session_state["chat_threads"] = threads if threads else []
 
 add_thread(st.session_state["thread_id"])
 
