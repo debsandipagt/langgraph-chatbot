@@ -2,89 +2,80 @@ import streamlit as st
 import uuid
 
 from src.graph.graph_builder import builder_graph, retrieve_all_threads
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import HumanMessage, AIMessage
 
+# Initialize chatbot
 chatbot = builder_graph()
-
 
 # =========================
 # Utility Functions
 # =========================
 
 def generate_thread_id():
-
-    threads = st.session_state.get("chat_threads", [])
-
-    if not threads:
-        return "thread_1"
-
-    numbers = [int(t.split("_")[1]) for t in threads]
-
-    return f"thread_{max(numbers) + 1}"
+    return str(uuid.uuid4())
 
 
 def add_thread(thread_id):
+    if not isinstance(st.session_state.get('chat_threads'), list):
+        st.session_state['chat_threads'] = []
 
-    if "chat_threads" not in st.session_state:
-        st.session_state["chat_threads"] = []
-
-    if thread_id not in st.session_state["chat_threads"]:
-        st.session_state["chat_threads"].append(thread_id)
+    if thread_id not in st.session_state['chat_threads']:
+        st.session_state['chat_threads'].append(thread_id)
 
 
 def reset_chat():
     thread_id = generate_thread_id()
-    st.session_state["thread_id"] = thread_id
+    st.session_state['thread_id'] = thread_id
     add_thread(thread_id)
-    st.session_state["message_history"] = []
+    st.session_state['message_history'] = []
 
 
 def load_conversation(thread_id):
-    state = chatbot.get_state(
-        config={"configurable": {"thread_id": thread_id}}
-    )
-
-    return state.values.get("messages", [])
+    try:
+        state = chatbot.get_state(
+            config={'configurable': {'thread_id': thread_id}}
+        )
+        return state.values.get('messages', [])
+    except Exception as e:
+        st.error(f"Error loading conversation: {e}")
+        return []
 
 
 # =========================
 # Session Setup
 # =========================
 
-if "message_history" not in st.session_state:
-    st.session_state["message_history"] = []
+if 'message_history' not in st.session_state:
+    st.session_state['message_history'] = []
 
-if "thread_id" not in st.session_state:
-    st.session_state["thread_id"] = generate_thread_id()
+if 'thread_id' not in st.session_state:
+    st.session_state['thread_id'] = generate_thread_id()
 
-if "chat_threads" not in st.session_state:
-
+if 'chat_threads' not in st.session_state:
     threads = retrieve_all_threads()
+    st.session_state['chat_threads'] = threads if isinstance(threads, list) else []
 
-    if threads is None:
-        threads = []
-
-    st.session_state["chat_threads"] = threads
-
-add_thread(st.session_state["thread_id"])
+add_thread(st.session_state['thread_id'])
 
 
 # =========================
-# Sidebar
+# Sidebar UI
 # =========================
 
-st.sidebar.title("NeuroChat AI")
+st.sidebar.title('💬 NeuroChat AI')
 
-if st.sidebar.button("New Chat"):
+if st.sidebar.button('New Chat'):
     reset_chat()
 
-st.sidebar.header("My Conversations")
+st.sidebar.header('My Conversations')
 
-for thread_id in st.session_state["chat_threads"][::-1]:
+# Debug (optional)
+# st.sidebar.write("Threads from DB:", st.session_state['chat_threads'])
+
+for thread_id in st.session_state['chat_threads'][::-1]:
 
     if st.sidebar.button(thread_id):
-
-        st.session_state["thread_id"] = thread_id
+        st.session_state['thread_id'] = thread_id
 
         messages = load_conversation(thread_id)
 
@@ -92,53 +83,64 @@ for thread_id in st.session_state["chat_threads"][::-1]:
 
         for msg in messages:
             if isinstance(msg, HumanMessage):
-                role = "user"
+                role = 'user'
+            elif isinstance(msg, AIMessage):
+                role = 'assistant'
             else:
-                role = "assistant"
+                continue
 
-            temp_messages.append(
-                {"role": role, "content": msg.content}
-            )
+            temp_messages.append({
+                'role': role,
+                'content': msg.content
+            })
 
-        st.session_state["message_history"] = temp_messages
+        st.session_state['message_history'] = temp_messages
 
 
 # =========================
 # Main Chat UI
 # =========================
 
-for message in st.session_state["message_history"]:
-    with st.chat_message(message["role"]):
-        st.text(message["content"])
+#st.title("💬 NeuroChat AI")
+
+for message in st.session_state['message_history']:
+    with st.chat_message(message['role']):
+        st.text(message['content'])
 
 
-user_input = st.chat_input("Type here...")
-
+user_input = st.chat_input('Type here...')
 
 if user_input:
 
-    st.session_state["message_history"].append(
-        {"role": "user", "content": user_input}
-    )
+    st.session_state['message_history'].append({
+        'role': 'user',
+        'content': user_input
+    })
 
-    with st.chat_message("user"):
+    with st.chat_message('user'):
         st.text(user_input)
 
     CONFIG = {
-        "configurable": {"thread_id": st.session_state["thread_id"]}
+        "configurable": {"thread_id": st.session_state["thread_id"]},
+        "metadata": {"thread_id": st.session_state["thread_id"]},
+        "run_name": "chat_turn",
     }
 
-    with st.chat_message("assistant"):
+    full_response = ""
 
-        ai_message = st.write_stream(
-            message_chunk.content
-            for message_chunk, metadata in chatbot.stream(
-                {"messages": [HumanMessage(content=user_input)]},
-                config=CONFIG,
-                stream_mode="messages",
-            )
-        )
+    with st.chat_message('assistant'):
+        response_container = st.empty()
 
-    st.session_state["message_history"].append(
-        {"role": "assistant", "content": ai_message}
-    )
+        for message_chunk, metadata in chatbot.stream(
+            {'messages': [HumanMessage(content=user_input)]},
+            config=CONFIG,
+            stream_mode='messages'
+        ):
+            if isinstance(message_chunk, AIMessage):
+                full_response += message_chunk.content
+                response_container.markdown(full_response)
+
+    st.session_state['message_history'].append({
+        'role': 'assistant',
+        'content': full_response
+    })
