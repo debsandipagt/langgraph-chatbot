@@ -1,26 +1,24 @@
 from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.sqlite import SqliteSaver
-from langgraph.checkpoint.memory import InMemorySaver
 import sqlite3
+import os
 
 from src.chains.chatbot_chain import ChatState, chat_node
 
-# Create sqlite datavase
-conn = sqlite3.connect("NeurohatAIDb.db", check_same_thread=False)
+# =========================
+# Database Setup
+# =========================
 
-cursor = conn.cursor()
+DB_PATH = os.path.join(os.getcwd(), "NeurohatAIDb.db")
 
-# Create thread metadata table
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS threads (
-    thread_id TEXT PRIMARY KEY,
-    thread_title TEXT
-)
-""")
-
-conn.commit()
+conn = sqlite3.connect(DB_PATH, check_same_thread=False)
 
 checkpointer = SqliteSaver(conn=conn)
+
+
+# =========================
+# Graph Builder
+# =========================
 
 def builder_graph():
 
@@ -35,10 +33,14 @@ def builder_graph():
 
     return chatbot
 
+
+# =========================
+# Retrieve Threads (FIXED)
+# =========================
+
 def retrieve_all_threads():
     all_threads = set()
+    for checkpoint in checkpointer.list(None):
+        all_threads.add(checkpoint.config['configurable']['thread_id'])
 
-    for checkpointer_obj in checkpointer.list(None):
-        all_threads.add(checkpointer_obj.config['configurable']['thread_id'])
-
-
+    return list(all_threads)
